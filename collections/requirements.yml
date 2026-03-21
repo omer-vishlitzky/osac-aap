@@ -21,7 +21,8 @@ collections:
     version: "3.4.1"
   - name: osac.templates
     type: git
-    source: https://github.com/osac-project/osac-templates
+    source: https://github.com/omer-vishlitzky/osac-templates
+    version: fix/restart-vm-ansible
   - name: osac.massopencloud
     type: git
     source: https://github.com/osac-project/osac-massopencloud-templates

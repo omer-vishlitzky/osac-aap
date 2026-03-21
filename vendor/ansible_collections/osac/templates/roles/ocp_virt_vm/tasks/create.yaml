@@ -283,6 +283,44 @@
           spec: "{{ vm_template_spec }}"
     state: present
 
+- name: Check if restart is requested
+  ansible.builtin.set_fact:
+    restart_requested: >-
+      {{
+        (compute_instance.spec.restartRequestedAt | default('') | length > 0)
+        and
+        (
+          (compute_instance.status.lastRestartedAt | default('') | length == 0)
+          or
+          (compute_instance.spec.restartRequestedAt > compute_instance.status.lastRestartedAt | default(''))
+        )
+      }}
+
+- name: Delete VirtualMachineInstance to trigger restart
+  kubernetes.core.k8s:
+    kubeconfig: "{{ remote_cluster_kubeconfig | default(omit) }}"
+    api_version: kubevirt.io/v1
+    kind: VirtualMachineInstance
+    name: "{{ compute_instance_name }}"
+    namespace: "{{ vm_target_namespace }}"
+    state: absent
+  when: restart_requested | bool
+
+- name: Wait for VMI to be recreated after restart
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ remote_cluster_kubeconfig | default(omit) }}"
+    api_version: kubevirt.io/v1
+    kind: VirtualMachineInstance
+    name: "{{ compute_instance_name }}"
+    namespace: "{{ vm_target_namespace }}"
+  register: vmi_info
+  until:
+    - vmi_info.resources | length > 0
+    - vmi_info.resources[0].metadata.creationTimestamp > compute_instance.spec.restartRequestedAt
+  retries: 60
+  delay: 5
+  when: restart_requested | bool
+
 - name: Show VM Namespace and VM Name
   ansible.builtin.debug:
     msg: "Namespace {{ vm_target_namespace }} - Name: {{ compute_instance_name }}"

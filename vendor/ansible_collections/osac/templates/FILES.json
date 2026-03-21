@@ -393,17 +393,17 @@
    "format": 1
   },
   {
-   "name": "roles/ocp_virt_vm/tasks/create.yaml",
-   "ftype": "file",
-   "chksum_type": "sha256",
-   "chksum_sha256": "14891f54b76b9c300e6d60b8576fae6f759751cdf69d37757e41da5eb4526f68",
-   "format": 1
-  },
-  {
    "name": "roles/ocp_virt_vm/tasks/delete.yaml",
    "ftype": "file",
    "chksum_type": "sha256",
    "chksum_sha256": "677e245ecc3dfad2645a51567f3239749431a127ea94657d31c25e4ab52dd293",
+   "format": 1
+  },
+  {
+   "name": "roles/ocp_virt_vm/tasks/create.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e46874e41c1ecdd6eb95851c735799a4f06ea06482494e66371a09943227f7f7",
    "format": 1
   }
  ],

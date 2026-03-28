@@ -56,7 +56,15 @@
         infraID: "{{ hosted_cluster_name }}"
         services:
           - service: APIServer
-            servicePublishingStrategy: "{{ {'type': hosted_cluster_api_service_type} | combine(({'loadBalancer': {'hostname': 'api.' + hosted_cluster_name + '.' + hosted_cluster_base_domain}} if hosted_cluster_api_service_type == 'LoadBalancer' else {})) }}"
+            servicePublishingStrategy: >-
+              {{
+                {'type': hosted_cluster_api_service_type}
+                | combine(
+                    {'loadBalancer': {'hostname': 'api.' + hosted_cluster_name + '.' + hosted_cluster_base_domain}}
+                    if hosted_cluster_api_service_type == 'LoadBalancer'
+                    else {'nodePort': {'address': '0.0.0.0', 'port': hosted_cluster_api_node_port | int}}
+                )
+              }}
           - service: OAuthServer
             servicePublishingStrategy:
               type: Route

@@ -4,3 +4,4 @@ hosted_cluster_default_agent_namespace: "hardware-inventory"
 hosted_cluster_default_cluster_order_label: "{{ {cluster_order_label: hosted_cluster_name} }}"
 hosted_cluster_node_requests: []
 hosted_cluster_api_service_type: LoadBalancer
+hosted_cluster_api_node_port: 30443

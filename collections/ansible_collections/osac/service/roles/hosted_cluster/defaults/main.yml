@@ -5,3 +5,4 @@ hosted_cluster_default_cluster_order_label: "{{ {cluster_order_label: hosted_clu
 hosted_cluster_node_requests: []
 hosted_cluster_api_service_type: LoadBalancer
 hosted_cluster_api_node_port: 30443
+hosted_cluster_availability_policy: HighlyAvailable

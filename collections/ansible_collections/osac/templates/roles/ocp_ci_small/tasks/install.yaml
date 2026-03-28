@@ -23,7 +23,7 @@
 
 - name: Select and label agents
   ansible.builtin.include_role:
-    name: manage_agents
+    name: osac.service.manage_agents
     tasks_from: select_and_label_new_agents
   vars:
     manage_agents_cluster_order_name: "{{ cluster_order.metadata.name }}"

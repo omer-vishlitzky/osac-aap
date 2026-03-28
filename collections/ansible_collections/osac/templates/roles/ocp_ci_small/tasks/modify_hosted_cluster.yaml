@@ -1,0 +1,17 @@
+---
+# Hook called by osac.service.hosted_cluster before applying the HostedCluster CR.
+# Replaces LoadBalancer with NodePort for CI environments without MetalLB.
+- name: Override API server service type to NodePort
+  ansible.builtin.set_fact:
+    hosted_cluster_definition: >-
+      {{ hosted_cluster_definition | combine({
+        'spec': hosted_cluster_definition.spec | combine({
+          'services': [
+            {'service': 'APIServer', 'servicePublishingStrategy': {'type': 'NodePort'}},
+            {'service': 'OAuthServer', 'servicePublishingStrategy': {'type': 'Route'}},
+            {'service': 'OIDC', 'servicePublishingStrategy': {'type': 'Route'}},
+            {'service': 'Konnectivity', 'servicePublishingStrategy': {'type': 'Route'}},
+            {'service': 'Ignition', 'servicePublishingStrategy': {'type': 'Route'}}
+          ]
+        })
+      }, recursive=true) }}

@@ -56,10 +56,7 @@
         infraID: "{{ hosted_cluster_name }}"
         services:
           - service: APIServer
-            servicePublishingStrategy:
-              type: LoadBalancer
-              loadBalancer:
-                hostname: "api.{{ hosted_cluster_name }}.{{ hosted_cluster_base_domain }}"
+            servicePublishingStrategy: "{{ {'type': hosted_cluster_api_service_type} | combine(({'loadBalancer': {'hostname': 'api.' + hosted_cluster_name + '.' + hosted_cluster_base_domain}} if hosted_cluster_api_service_type == 'LoadBalancer' else {})) }}"
           - service: OAuthServer
             servicePublishingStrategy:
               type: Route

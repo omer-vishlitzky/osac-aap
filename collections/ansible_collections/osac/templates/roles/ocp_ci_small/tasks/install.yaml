@@ -20,9 +20,7 @@
       ssh_public_key: "{{ template_parameters.ssh_public_key }}"
     hosted_cluster_node_requests: "{{ cluster_order.spec.nodeRequests | unique(attribute='resourceClass') }}"
     hosted_cluster_state: present
-    hosted_cluster_modify_definition_hook:
-      name: osac.templates.ocp_ci_small
-      tasks_from: modify_hosted_cluster.yaml
+    hosted_cluster_api_service_type: NodePort
 
 - name: Select and label agents
   ansible.builtin.include_role:

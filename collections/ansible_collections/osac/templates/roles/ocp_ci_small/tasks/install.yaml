@@ -1,0 +1,62 @@
+---
+# CI cluster template: same as ocp_4_17_small but skips ESI networking.
+# Replaces cluster_infra (ESI network + agent attachment) with direct
+# agent selection + approval. Skips external_access (ESI port forwarding).
+
+- name: Override OCP release image from template parameters
+  ansible.builtin.set_fact:
+    ocp_release_image: "{{ template_parameters.ocp_release_image }}"
+  when: template_parameters.ocp_release_image is defined
+
+- name: Create hosted cluster
+  ansible.builtin.include_role:
+    name: osac.service.hosted_cluster
+  vars:
+    hosted_cluster_name: "{{ cluster_order.metadata.name }}"
+    hosted_cluster_namespace: "{{ cluster_working_namespace }}"
+    hosted_cluster_settings:
+      ocp_release_image: "{{ ocp_release_image }}"
+      pull_secret: "{{ template_parameters.pull_secret }}"
+      ssh_public_key: "{{ template_parameters.ssh_public_key }}"
+    hosted_cluster_node_requests: "{{ cluster_order.spec.nodeRequests | unique(attribute='resourceClass') }}"
+    hosted_cluster_state: present
+
+- name: Select and label agents
+  ansible.builtin.include_role:
+    name: manage_agents
+    tasks_from: select_and_label_new_agents
+  vars:
+    manage_agents_cluster_order_name: "{{ cluster_order.metadata.name }}"
+    manage_agents_desired_count: "{{ item.numberOfNodes | int }}"
+    manage_agents_resource_class: "{{ item.resourceClass }}"
+  loop: "{{ cluster_order.spec.nodeRequests }}"
+
+- name: Get agents labeled for this cluster order
+  kubernetes.core.k8s_info:
+    api_version: agent-install.openshift.io/v1beta1
+    kind: Agent
+    namespace: "{{ default_agent_namespace }}"
+    label_selectors:
+      - "{{ cluster_order_label }}={{ cluster_order.metadata.name }}"
+  register: ci_labeled_agents
+
+- name: Approve agents
+  kubernetes.core.k8s_json_patch:
+    api_version: agent-install.openshift.io/v1beta1
+    kind: Agent
+    name: "{{ item.metadata.name }}"
+    namespace: "{{ item.metadata.namespace }}"
+    patch:
+      - op: add
+        path: /spec/approved
+        value: true
+  loop: "{{ ci_labeled_agents.resources | selectattr('spec.approved', 'false') }}"
+  loop_control:
+    label: "Approve agent {{ item.metadata.name }}"
+
+- name: Retrieve kubeconfig
+  ansible.builtin.include_role:
+    name: osac.service.retrieve_kubeconfig
+  vars:
+    retrieve_kubeconfig_cluster_name: "{{ cluster_order.metadata.name }}"
+    retrieve_kubeconfig_namespace: "{{ cluster_working_namespace }}"

@@ -1,25 +1,37 @@
 ---
 # Wait for all ClusterOperators to reach Available=True.
-# Reports which operators are not yet available on each check.
+# Logs which operators are unavailable on each poll iteration so that
+# timeout failures produce actionable diagnostics instead of bare
+# "FAILED - RETRYING" lines.
 #
 # Required vars:
 #   wait_for_kubeconfig: kubeconfig for the managed cluster
 
-- name: Wait for all ClusterOperators to become available
-  kubernetes.core.k8s_info:
-    api_version: config.openshift.io/v1
-    kind: ClusterOperator
-    kubeconfig: "{{ wait_for_kubeconfig }}"
-    wait_timeout: "{{ wait_for_request_timeout | default(30) }}"
-  register: _wait_co_results
-  until: >-
-    (_wait_co_results.resources | default([]) | length > 0)
-    and (_wait_co_results.resources
-        | json_query("[?!(status.conditions[?type=='Available' && status=='True'])]")
-        | length == 0)
-  retries: "{{ wait_for_clusteroperators_retries }}"
-  delay: "{{ wait_for_clusteroperators_delay }}"
+- name: Initialize CO wait state
+  ansible.builtin.set_fact:
+    wait_for_co_all_available: false
+    wait_for_co_attempts: 0
+    wait_for_co_max_retries: "{{ wait_for_clusteroperators_retries | int }}"
+    wait_for_co_delay: "{{ wait_for_clusteroperators_delay | int }}"
+
+- name: Poll ClusterOperators until all available
+  ansible.builtin.include_tasks: _poll_cluster_operators.yaml
+  loop: "{{ range(wait_for_clusteroperators_retries | int) | list }}"
+  loop_control:
+    loop_var: wait_for_co_loop_index
+    label: "attempt {{ wait_for_co_loop_index + 1 }}"
+  when: not (wait_for_co_all_available | bool)
+
+- name: Fail if ClusterOperators not available after timeout
+  ansible.builtin.fail:
+    msg: >-
+      {{ wait_for_co_unavailable | length }} of {{ wait_for_co_total }} ClusterOperators
+      not available after {{ wait_for_co_max_retries | int * wait_for_co_delay | int }}s:
+      {{ wait_for_co_unavailable | map(attribute='name') | join(', ') }}.
+      Details: {{ wait_for_co_unavailable | to_nice_yaml }}
+  when: not (wait_for_co_all_available | bool)
 
 - name: Report ClusterOperators status
   ansible.builtin.debug:
-    msg: "All {{ _wait_co_results.resources | length }} ClusterOperators are available."
+    msg: "All {{ wait_for_co_total }} ClusterOperators are available ({{ wait_for_co_attempts }} polls)."
+  when: wait_for_co_all_available | bool

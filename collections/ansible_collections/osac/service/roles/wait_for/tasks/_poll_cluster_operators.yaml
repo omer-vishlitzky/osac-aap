@@ -1,0 +1,72 @@
+---
+- name: Query ClusterOperators
+  kubernetes.core.k8s_info:
+    api_version: config.openshift.io/v1
+    kind: ClusterOperator
+    kubeconfig: "{{ wait_for_kubeconfig }}"
+    wait_timeout: "{{ wait_for_request_timeout | default(30) }}"
+  register: wait_for_co_results
+  ignore_errors: true
+
+- name: Identify unavailable operators
+  ansible.builtin.set_fact:
+    wait_for_co_attempts: "{{ wait_for_co_attempts | int + 1 }}"
+    wait_for_co_total: "{{ wait_for_co_results.resources | default([]) | length }}"
+
+- name: Extract conditions of unavailable operators
+  ansible.builtin.set_fact:
+    wait_for_co_unavailable: >-
+      {% set result = [] -%}
+      {% for co in wait_for_co_results.resources | default([]) -%}
+        {% set avail = co.status.conditions | default([]) | selectattr('type', 'equalto', 'Available') | selectattr('status', 'equalto', 'True') | list -%}
+        {% if avail | length == 0 -%}
+          {% set degraded = co.status.conditions | default([]) | selectattr('type', 'equalto', 'Degraded') | list -%}
+          {% set progressing = co.status.conditions | default([]) | selectattr('type', 'equalto', 'Progressing') | list -%}
+          {% set available_cond = co.status.conditions | default([]) | selectattr('type', 'equalto', 'Available') | list -%}
+          {{ result.append({
+            'name': co.metadata.name,
+            'available': available_cond[0].status | default('Unknown') if available_cond else 'Missing',
+            'available_message': available_cond[0].message | default('') if available_cond else '',
+            'degraded': degraded[0].status | default('Unknown') if degraded else 'Unknown',
+            'degraded_message': degraded[0].message | default('') if degraded else '',
+            'progressing': progressing[0].status | default('Unknown') if progressing else 'Unknown',
+            'progressing_message': progressing[0].message | default('') if progressing else '',
+          }) -}}
+        {% endif -%}
+      {% endfor -%}
+      {{ result }}
+
+- name: Mark available when all COs are ready
+  ansible.builtin.set_fact:
+    wait_for_co_all_available: true
+  when:
+    - wait_for_co_results is not failed
+    - wait_for_co_results.resources | default([]) | length > 0
+    - wait_for_co_unavailable | length == 0
+
+- name: Report unavailable operators
+  ansible.builtin.debug:
+    msg: >-
+      [{{ wait_for_co_attempts }}/{{ wait_for_co_max_retries }}]
+      {{ wait_for_co_total | int - wait_for_co_unavailable | length }}/{{ wait_for_co_total }} COs available.
+      Waiting on: {{ wait_for_co_unavailable | map(attribute='name') | join(', ') }}
+  when: not (wait_for_co_all_available | bool)
+
+- name: Log CO details every 5 polls
+  ansible.builtin.debug:
+    msg: >-
+      {{ item.name }}:
+      Available={{ item.available }} ({{ item.available_message }}),
+      Degraded={{ item.degraded }} ({{ item.degraded_message }}),
+      Progressing={{ item.progressing }} ({{ item.progressing_message }})
+  loop: "{{ wait_for_co_unavailable }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when:
+    - not (wait_for_co_all_available | bool)
+    - (wait_for_co_attempts | int) % 5 == 0 or (wait_for_co_attempts | int) <= 2
+
+- name: Wait before next poll
+  ansible.builtin.pause:
+    seconds: "{{ wait_for_co_delay }}"
+  when: not (wait_for_co_all_available | bool)

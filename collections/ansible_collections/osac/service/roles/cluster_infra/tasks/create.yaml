@@ -1,4 +1,19 @@
 ---
+- name: Wait for ignition endpoint
+  kubernetes.core.k8s_info:
+    api_version: hypershift.openshift.io/v1beta1
+    kind: HostedCluster
+    namespace: "{{ cluster_infra_namespace }}"
+    name: "{{ cluster_infra_name }}"
+  register: cluster_infra_hc
+  until:
+    - cluster_infra_hc.resources | length > 0
+    - cluster_infra_hc.resources[0].status.conditions | default([])
+      | selectattr('type', 'equalto', 'IgnitionEndpointAvailable')
+      | selectattr('status', 'equalto', 'True') | list | length > 0
+  retries: 60
+  delay: 10
+
 - name: Include network-class-specific create tasks
   ansible.builtin.include_role:
     name: "{{ network_steps_collection }}.cluster_infra"

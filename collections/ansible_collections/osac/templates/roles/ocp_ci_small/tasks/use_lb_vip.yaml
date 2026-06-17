@@ -1,0 +1,23 @@
+---
+# Strip the hostname from the LoadBalancer strategy so HyperShift uses the
+# MetalLB VIP IP directly in the kubeconfig and cert SANs. This avoids DNS
+# resolution issues in CI libvirt environments.
+- name: Patch APIServer to LoadBalancer without hostname
+  ansible.builtin.set_fact:
+    hosted_cluster_definition: >-
+      {{ hosted_cluster_definition | combine({
+        'spec': hosted_cluster_definition.spec | combine({
+          'services': [
+            {
+              'service': 'APIServer',
+              'servicePublishingStrategy': {
+                'type': 'LoadBalancer'
+              }
+            }
+          ] + (hosted_cluster_definition.spec.services | rejectattr('service', 'equalto', 'APIServer') | list)
+        })
+      }) }}
+
+- name: Log LoadBalancer config
+  ansible.builtin.debug:
+    msg: "CI: APIServer set to LoadBalancer without hostname (MetalLB VIP)"

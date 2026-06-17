@@ -21,6 +21,9 @@
     install_step_post_install_hook_default:
       name: osac.templates.ocp_ci_small
       tasks_from: noop.yaml
+    hosted_cluster_modify_definition_hook:
+      name: osac.templates.ocp_ci_small
+      tasks_from: use_lb_vip.yaml
 
 - name: Step - Pre-install hook
   ansible.builtin.include_role:

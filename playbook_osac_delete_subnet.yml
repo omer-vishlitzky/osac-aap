@@ -8,8 +8,7 @@
     subnet_name: "{{ ansible_eda.event.payload.metadata.name }}"
     # Implementation strategy set by osac-operator from parent VirtualNetwork spec
     implementation_strategy: >-
-      {{ ansible_eda.event.payload.metadata.annotations
-         ['osac.openshift.io/implementation-strategy'] }}
+      {{ ansible_eda.event.payload.metadata.annotations.get('osac.openshift.io/implementation-strategy', '') }}
     template_parameters: {}
 
   pre_tasks:
